@@ -1,0 +1,198 @@
+Project HeliumDewiETL {
+  database_type: 'PostgreSQL'
+  Note: '''
+    # Helium Blockchain Database on DeWi
+    **This document provides relations between different helium blockchain tables on DeWi database server**
+  '''
+}
+Table gateway_inventory as g {
+  address text [pk]
+  owner text
+  location text
+  last_poc_challenge bigint [ref: > b.height]
+  last_poc_onion_key_hash text 
+  witnesses jsonb
+  first_block bigint [ref: > b.height]
+  last_block bigint [ref: > b.height]
+  nonce bigint
+  name text
+  first_timestamp timestamp
+  reward_scale double_precision
+  elevation integer
+  gain integer
+  location_hex text
+  mode text
+  note: "table 'gateway_inventory' contains information about nodes on Helium Blockchain"
+}
+Table gateway_status {
+  address text [pk]
+  online text [note: 'Provides Offline vs Online status']
+  block bigint [ref: > b.height]
+  updated_at timestamp
+  poc_interval bigint
+  last_challenge bigint [ref: > b.height]
+  peer_timestamp timestamp
+  listen_addrs jsonb
+  note: "table 'gateway_status' contains status info about nodes"
+}
+Table gateways {
+  block bigint [pk]
+  address text [pk]
+  owner text [ref: > a.address]
+  location text 
+  last_poc_challenge bigint [ref: > b.height]
+  last_poc_onion_key_hash text
+  witnesses jsonb
+  nonce bigint
+  name text
+  "time" bigint
+  reward_scale double_precision
+  elevation integer
+  gain integer
+  location_hex text
+  mode gateway_mode
+  note: "node full history"
+}
+Table locations as l {
+  location text [pk]
+  long_street text
+  short_street text
+  long_city text
+  short_city text
+  long_state text
+  short_state text
+  long_country text
+  short_country text
+  search_city text
+  city_id text
+  geometry geometry
+  note: "table 'locations' contains street level address for asserted node"
+}
+Table rewards {
+  block bigint [ref: > b.height]
+  transaction_hash text [ref: > t.hash]
+  time bigint
+  account text [ref: > a.address]
+  gateway text [ref: > g.address]
+  amount bigint [note: 'Represented in bones, divide by 100000000 to get HNT']
+  note: "Rewards for node"
+}
+Table account_inventory as a {
+  address text [pk]
+  balance bigint
+  nonce bigint
+  dc_balance bigint
+  dc_nonce bigint
+  security_balance bigint
+  security_nonce bigint
+  first_block bigint [ref: > b.height]
+  last_block bigint [ref: > b.height]
+  staked_balance bigint
+  note: "table 'account_inventory' contains information about accounts/wallets on Helium Blockchain"
+} 
+Table accounts {
+  block bigint [pk]
+  address text [pk]
+  dc_balance bigint
+  dc_nonce bigint
+  security_balance bigint
+  security_nonce bigint
+  balance bigint
+  nonce bigint
+  staked_balance bigint
+  note: "account/wallet full history"
+}  
+Table block_signatures {
+  block bigint [pk]
+  signer text [pk]
+  signature text
+}
+Table blocks as b {
+	height bigint [pk]
+  "time" bigint
+  "timestamp" timestamp
+  prev_hash text
+  block_hash text
+  transaction_count integer
+  hbbft_round bigint
+  election_epoch bigint
+  epoch_start bigint
+  rescue_signature text
+  snapshot_hash text
+  created_at timestamp
+}
+Table challenge_receipts_parsed {
+  block bigint [ref: > b.height]
+  hash text
+  "time" timestamp
+  transmitter_name text
+  transmitter_address text [ref: > g.address]
+  origin text
+  witness_owner text [ref: > a.address]
+  witness_name text
+  witness_gateway text [ref: > g.address]
+  witness_is_valid text
+  witness_invalid_reason text
+  witness_signal text
+  witness_snr text
+  witness_channel text
+  witness_datarate text
+  witness_frequency text
+  witness_location text
+  witness_timestamp text
+  note: 'Unpacked POC information'
+}
+Table dc_burns {    
+  block bigint [ref: > b.height]
+  transaction_hash text [pk]
+  actor text [pk]
+  type burn_type [pk] 
+  amount bigint
+  oracle_price bigint
+  "time" bigint
+}
+Table oracle_inventory {
+  address text [ref: > a.address]
+  note: "Oracles addresses"
+}
+Table oracle_prices {
+  block bigint [pk]
+  price bigint [note: 'Divide by 100000000 to get USD value']
+  note: "Oracle price history"
+}
+Table packets {
+  block bigint [pk]
+  transaction_hash text [pk] 
+  "time" bigint
+  gateway text [pk]
+  num_packets bigint
+  num_dcs bigint
+  note: "Information about packet transferred thru nodes"
+}
+Table transaction_actors {
+  actor text [ref: > g.address]
+  actor_role transaction_actor_role
+  transaction_hash text [ref: > t.hash]
+  block bigint [ref: > b.height]
+}
+Table transactions as t {
+  block bigint [ref: > b.height]
+  hash text [pk] 
+  type transaction_type
+  fields jsonb [note: 'Json data for all transaction related information']
+  "time" bigint
+}
+Ref: gateway_status.address - g.address
+Ref: l.location - g.location
+Ref: l.location - gateways.location
+Ref: gateways.block > b.height
+Ref: gateways.address > g.address
+Ref: block_signatures.block > b.height
+Ref: dc_burns.transaction_hash > t.hash
+Ref: dc_burns.actor > a.address
+Ref: oracle_prices.block > b.height
+Ref: packets.block > b.height
+Ref: accounts.block > b.height
+Ref: accounts.address > a.address
+Ref: packets.transaction_hash > t.hash
+Ref: packets.gateway > g.address
